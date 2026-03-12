@@ -397,6 +397,25 @@ begin
 end $$;
 
 -- ============================================================
+-- GRANT — PostgREST가 커스텀 스키마에 접근할 수 있도록 권한 부여
+-- ============================================================
+grant usage on schema sys, core, mdm, mes, qms, dms to anon, authenticated;
+grant select, insert, update, delete on all tables in schema sys  to anon, authenticated;
+grant select, insert, update, delete on all tables in schema core to anon, authenticated;
+grant select, insert, update, delete on all tables in schema mdm  to anon, authenticated;
+grant select, insert, update, delete on all tables in schema mes  to anon, authenticated;
+grant select, insert, update, delete on all tables in schema qms  to anon, authenticated;
+grant select, insert, update, delete on all tables in schema dms  to anon, authenticated;
+grant execute on all functions in schema mes to anon, authenticated;
+-- 신규 테이블에도 자동 적용
+alter default privileges in schema sys  grant select, insert, update, delete on tables to anon, authenticated;
+alter default privileges in schema core grant select, insert, update, delete on tables to anon, authenticated;
+alter default privileges in schema mdm  grant select, insert, update, delete on tables to anon, authenticated;
+alter default privileges in schema mes  grant select, insert, update, delete on tables to anon, authenticated;
+alter default privileges in schema qms  grant select, insert, update, delete on tables to anon, authenticated;
+alter default privileges in schema dms  grant select, insert, update, delete on tables to anon, authenticated;
+
+-- ============================================================
 -- 초기 데이터
 -- ============================================================
 -- 공정유형 기준 데이터는 코드에서 관리 (ANODIZING/BONDING/OTHER_POST)
