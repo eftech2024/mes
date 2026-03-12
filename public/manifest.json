@@ -1,0 +1,53 @@
+{
+  "name": "EF MES 생산관리",
+  "short_name": "EF MES",
+  "description": "아노다이징 생산관리 시스템",
+  "start_url": "/plan",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "orientation": "any",
+  "lang": "ko",
+  "categories": ["productivity", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "작업지시서",
+      "short_name": "작업지시",
+      "url": "/workorder",
+      "description": "공정별 작업 지시 관리"
+    },
+    {
+      "name": "바코드 스캔",
+      "short_name": "바코드",
+      "url": "/barcode",
+      "description": "입고 및 공정 추적"
+    },
+    {
+      "name": "생산계획",
+      "short_name": "계획",
+      "url": "/plan",
+      "description": "납품 계획 및 재고 비교"
+    }
+  ]
+}
