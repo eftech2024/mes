@@ -7,9 +7,12 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { MasterDetailTable, type MasterDetailColumn, type MasterDetailTab } from '@/components/master-detail-table'
+import { getPrimaryLotBarcode } from '@/lib/lot-barcode'
 
 interface LotRow {
   id: string
+  barcode: string
   lot_no: string
   status: string
   qty_total: number
@@ -39,7 +42,7 @@ export default function LotSearchPage() {
   const load = useCallback(async () => {
     setLoading(true)
     let q = db.mes.from('lot_master')
-      .select('id, lot_no, status, qty_total, qty_available, inbound_date, product_id, work_order_id')
+      .select('id, lot_no, status, qty_total, qty_available, inbound_date, product_id, work_order_id, lot_barcodes(barcode_value, barcode_type, is_primary)')
       .order('created_at', { ascending: false })
       .limit(300)
     if (status !== 'ALL') q = q.eq('status', status)
@@ -73,12 +76,14 @@ export default function LotSearchPage() {
 
     const result = data.map((r: any) => ({
       ...r,
+      barcode: getPrimaryLotBarcode(r.lot_barcodes, r.lot_no),
       product_name: prodMap[r.product_id] ?? '-',
       party_name: r.work_order_id ? (partyMap[woMap[r.work_order_id]] ?? '-') : '-',
     }))
 
     const searchLow = search.toLowerCase()
     setRows(search ? result.filter((r: LotRow) =>
+      r.barcode.toLowerCase().includes(searchLow) ||
       r.lot_no.toLowerCase().includes(searchLow) ||
       r.product_name.toLowerCase().includes(searchLow) ||
       r.party_name.toLowerCase().includes(searchLow)
@@ -88,11 +93,92 @@ export default function LotSearchPage() {
 
   useEffect(() => { load() }, [load])
 
+  const columns: MasterDetailColumn<LotRow>[] = [
+    {
+      id: 'barcode',
+      header: '바코드',
+      render: row => <span className="font-mono font-semibold text-green-700">{row.barcode}</span>,
+    },
+    {
+      id: 'product_name',
+      header: '품목명',
+      render: row => <span className="font-medium text-gray-900">{row.product_name}</span>,
+    },
+    {
+      id: 'party_name',
+      header: '고객사',
+      render: row => <span className="text-gray-600">{row.party_name}</span>,
+    },
+    {
+      id: 'qty_total',
+      header: '총수량',
+      className: 'text-right',
+      headerClassName: 'text-right',
+      render: row => <span className="tabular-nums">{row.qty_total.toLocaleString()}</span>,
+    },
+    {
+      id: 'qty_available',
+      header: '가용수량',
+      className: 'text-right',
+      headerClassName: 'text-right',
+      render: row => <span className="tabular-nums">{row.qty_available.toLocaleString()}</span>,
+    },
+    {
+      id: 'status',
+      header: '상태',
+      render: row => (
+        <Badge className={LOT_STATUS_COLOR[row.status] ?? 'bg-gray-100 text-gray-600'}>
+          {LOT_STATUS_LABEL[row.status] ?? row.status}
+        </Badge>
+      ),
+    },
+  ]
+
+  const detailTabs: MasterDetailTab<LotRow>[] = [
+    {
+      id: 'summary',
+      label: '상세',
+      render: row => (
+        <div className="space-y-3 text-sm">
+          {[
+            ['바코드', row.barcode],
+            ['LOT 참조', row.lot_no],
+            ['품목명', row.product_name],
+            ['고객사', row.party_name],
+            ['입고일', row.inbound_date ?? '-'],
+            ['총수량', `${row.qty_total.toLocaleString()}개`],
+            ['가용수량', `${row.qty_available.toLocaleString()}개`],
+            ['상태', LOT_STATUS_LABEL[row.status] ?? row.status],
+          ].map(([label, value]) => (
+            <div key={label} className="grid grid-cols-[88px_minmax(0,1fr)] gap-3">
+              <span className="text-gray-400">{label}</span>
+              <span className="font-medium text-gray-900 break-all">{value}</span>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'trace',
+      label: '추적',
+      render: row => (
+        <div className="space-y-3">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+            모든 LOT 조회와 상세 이동은 바코드 기준으로 처리됩니다.
+          </div>
+          <Button onClick={() => router.push(`/lot/${encodeURIComponent(row.barcode)}`)} className="w-full bg-green-600 hover:bg-green-700">
+            상세 페이지 열기
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">LOT 검색</h1>
       <div className="flex gap-3 mb-4 flex-wrap">
-        <Input placeholder="LOT번호 / 품목명 / 고객사" value={search} onChange={e => setSearch(e.target.value)} className="w-64" />
+        <Input placeholder="바코드 / 품목명 / 고객사" value={search} onChange={e => setSearch(e.target.value)} className="w-64" />
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-52">
             <SelectValue placeholder="상태 전체" />
@@ -111,33 +197,15 @@ export default function LotSearchPage() {
       {loading ? (
         <div className="flex justify-center py-20"><div className="w-8 h-8 border-b-2 border-green-500 rounded-full animate-spin" /></div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>{['LOT번호','품목명','고객사','총수량','가용수량','입고일','상태'].map(h => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-              ))}</tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {rows.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/lot/${encodeURIComponent(r.lot_no)}`)}>
-                  <td className="px-4 py-3 font-mono font-semibold text-green-700">{r.lot_no}</td>
-                  <td className="px-4 py-3 text-gray-800">{r.product_name}</td>
-                  <td className="px-4 py-3 text-gray-500">{r.party_name}</td>
-                  <td className="px-4 py-3 text-right">{r.qty_total.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right">{r.qty_available.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-gray-500">{r.inbound_date ?? '-'}</td>
-                  <td className="px-4 py-3">
-                    <Badge className={LOT_STATUS_COLOR[r.status] ?? 'bg-gray-100 text-gray-600'}>
-                      {LOT_STATUS_LABEL[r.status] ?? r.status}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400">검색 결과가 없습니다.</td></tr>}
-            </tbody>
-          </table>
-        </div>
+        <MasterDetailTable
+          data={rows}
+          columns={columns}
+          getRowId={row => row.id}
+          detailTabs={detailTabs}
+          detailTitle={row => row.barcode}
+          detailSubtitle={row => `${row.product_name} · ${row.party_name}`}
+          emptyMessage="검색 결과가 없습니다."
+        />
       )}
     </div>
   )

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import Link from 'next/link'
+import { MasterDetailTable, type MasterDetailColumn, type MasterDetailTab } from '@/components/master-detail-table'
 
 interface InspSpec {
   id: string
@@ -85,11 +86,82 @@ export default function InspectionSpecPage() {
     load()
   }
 
+  const removeSpec = async (spec: InspSpec) => {
+    if (!confirm(`${spec.spec_name} 기준을 삭제하시겠습니까?`)) return
+    const { error } = await db.mdm.from('inspection_spec_master').delete().eq('id', spec.id)
+    if (error) {
+      toast({ title: '삭제 실패', description: error.message, variant: 'destructive' })
+      return
+    }
+    toast({ title: '검사기준 삭제 완료' })
+    await load()
+  }
+
   const filtered = specs.filter(s => {
     const matchStage = stageFilter === 'ALL' || s.inspection_stage === stageFilter
     const matchSearch = !search || s.spec_name.toLowerCase().includes(search.toLowerCase()) || s.check_item.toLowerCase().includes(search.toLowerCase())
     return matchStage && matchSearch
   })
+
+  const columns: MasterDetailColumn<InspSpec>[] = [
+    {
+      id: 'inspection_stage',
+      header: '검사 단계',
+      render: row => <Badge className={STAGE_COLOR[row.inspection_stage] ?? 'bg-gray-100 text-gray-600'}>{STAGE_LABEL[row.inspection_stage] ?? row.inspection_stage}</Badge>,
+    },
+    { id: 'spec_name', header: '기준명', render: row => <span className="font-medium text-gray-900">{row.spec_name}</span> },
+    { id: 'check_item', header: '검사 항목', render: row => <span className="text-gray-700">{row.check_item}</span> },
+    { id: 'measuring_tool', header: '계측기', render: row => <span className="text-gray-500">{row.measuring_tool ?? '-'}</span> },
+    {
+      id: 'criteria',
+      header: '기준치',
+      render: row => (
+        <span className="text-xs text-gray-500">
+          {row.lower_limit != null || row.upper_limit != null
+            ? `${row.lower_limit ?? '?'} ~ ${row.upper_limit ?? '?'}${row.unit ? ` ${row.unit}` : ''}`
+            : row.criteria_text ?? '-'}
+        </span>
+      ),
+    },
+    {
+      id: 'is_active',
+      header: '상태',
+      render: row => (
+        <button onClick={(event) => { event.stopPropagation(); void toggleActive(row) }} className={`rounded-full px-2 py-0.5 text-xs ${row.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+          {row.is_active ? '활성' : '비활성'}
+        </button>
+      ),
+    },
+  ]
+
+  const detailTabs: MasterDetailTab<InspSpec>[] = [
+    {
+      id: 'detail',
+      label: '상세',
+      render: row => (
+        <div className="space-y-3 text-sm">
+          {[
+            ['검사단계', STAGE_LABEL[row.inspection_stage] ?? row.inspection_stage],
+            ['기준명', row.spec_name],
+            ['검사항목', row.check_item],
+            ['계측기', row.measuring_tool ?? '-'],
+            ['기준치', row.lower_limit != null || row.upper_limit != null ? `${row.lower_limit ?? '?'} ~ ${row.upper_limit ?? '?'}${row.unit ? ` ${row.unit}` : ''}` : (row.criteria_text ?? '-')],
+            ['상태', row.is_active ? '활성' : '비활성'],
+          ].map(([label, value]) => (
+            <div key={label} className="grid grid-cols-[92px_minmax(0,1fr)] gap-3">
+              <span className="text-gray-400">{label}</span>
+              <span className="font-medium text-gray-900">{value}</span>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'rule',
+      label: '판정기준',
+      render: row => <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">{row.criteria_text ?? '수치 범위를 기준으로 판정합니다.'}</div>,
+    },
+  ]
 
   return (
     <div className="p-6">
@@ -112,34 +184,17 @@ export default function InspectionSpecPage() {
         </Select>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>{['검사 단계','기준명','검사 항목','계측기','기준치','단위','상태',''].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {filtered.map(s => (
-              <tr key={s.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3"><Badge className={STAGE_COLOR[s.inspection_stage] ?? 'bg-gray-100 text-gray-600'}>{STAGE_LABEL[s.inspection_stage] ?? s.inspection_stage}</Badge></td>
-                <td className="px-4 py-3 font-semibold text-gray-900">{s.spec_name}</td>
-                <td className="px-4 py-3 text-gray-600">{s.check_item}</td>
-                <td className="px-4 py-3 text-gray-500">{s.measuring_tool ?? '-'}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs">
-                  {s.lower_limit != null || s.upper_limit != null
-                    ? `${s.lower_limit ?? '?'} ~ ${s.upper_limit ?? '?'}`
-                    : s.criteria_text ?? '-'}
-                </td>
-                <td className="px-4 py-3 text-gray-500">{s.unit ?? '-'}</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => toggleActive(s)} className={`text-xs px-2 py-0.5 rounded-full ${s.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>{s.is_active ? '활성' : '비활성'}</button>
-                </td>
-                <td className="px-4 py-3"><button onClick={() => openEdit(s)} className="text-xs text-blue-500 hover:underline">수정</button></td>
-              </tr>
-            ))}
-            {filtered.length === 0 && <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400">검사기준이 없습니다.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <MasterDetailTable
+        data={filtered}
+        columns={columns}
+        getRowId={row => row.id}
+        detailTabs={detailTabs}
+        detailTitle={row => row.spec_name}
+        detailSubtitle={row => `${STAGE_LABEL[row.inspection_stage] ?? row.inspection_stage} · ${row.check_item}`}
+        emptyMessage="검사기준이 없습니다."
+        onEdit={openEdit}
+        onDelete={removeSpec}
+      />
 
       <Dialog open={modal} onOpenChange={setModal}>
         <DialogContent className="max-w-lg">

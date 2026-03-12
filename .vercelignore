@@ -1,0 +1,10 @@
+node_modules
+.git
+.next
+.vercel
+.env.local
+.env*.local
+docs
+*.sql
+*.xlsx
+*.mjs

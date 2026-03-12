@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import Link from 'next/link'
+import { MasterDetailTable, type MasterDetailColumn, type MasterDetailTab } from '@/components/master-detail-table'
 
 interface SysUserRow { user_id: string; user_code: string | null; user_name: string; department: string | null; position_title: string | null; phone: string | null; role_code: string; is_active: boolean; approved_at: string | null; created_at: string }
 
@@ -61,6 +62,63 @@ export default function UsersPage() {
 
   const filtered = users.filter(u => !search || u.user_name.toLowerCase().includes(search.toLowerCase()) || (u.department ?? '').toLowerCase().includes(search.toLowerCase()) || (u.user_code ?? '').toLowerCase().includes(search.toLowerCase()))
 
+  const columns: MasterDetailColumn<SysUserRow>[] = [
+    { id: 'user_code', header: '사원코드', render: row => <span className="font-mono text-gray-600">{row.user_code ?? '-'}</span> },
+    {
+      id: 'user_name',
+      header: '이름',
+      render: row => (
+        <span className="font-semibold text-gray-900">
+          {row.user_name}
+          {row.user_id === me?.user_id && <span className="ml-1 text-xs text-green-500">(나)</span>}
+        </span>
+      ),
+    },
+    { id: 'department', header: '부서', render: row => <span className="text-gray-500">{row.department ?? '-'}</span> },
+    { id: 'position_title', header: '직위', render: row => <span className="text-gray-500">{row.position_title ?? '-'}</span> },
+    { id: 'role_code', header: '역할', render: row => <Badge className={ROLE_COLOR[row.role_code] ?? 'bg-gray-100 text-gray-600'}>{ROLE_LABEL[row.role_code] ?? row.role_code}</Badge> },
+    {
+      id: 'is_active',
+      header: '상태',
+      render: row => <span className={`rounded-full px-2 py-0.5 text-xs ${row.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-500'}`}>{row.is_active ? '활성' : '비활성'}</span>,
+    },
+  ]
+
+  const detailTabs: MasterDetailTab<SysUserRow>[] = [
+    {
+      id: 'detail',
+      label: '상세',
+      render: row => (
+        <div className="space-y-3 text-sm">
+          {[
+            ['사원코드', row.user_code ?? '-'],
+            ['이름', row.user_name],
+            ['부서', row.department ?? '-'],
+            ['직위', row.position_title ?? '-'],
+            ['역할', ROLE_LABEL[row.role_code] ?? row.role_code],
+            ['전화', row.phone ?? '-'],
+            ['승인일', row.approved_at ? new Date(row.approved_at).toLocaleDateString('ko-KR') : '미승인'],
+            ['상태', row.is_active ? '활성' : '비활성'],
+          ].map(([label, value]) => (
+            <div key={label} className="grid grid-cols-[92px_minmax(0,1fr)] gap-3">
+              <span className="text-gray-400">{label}</span>
+              <span className="font-medium text-gray-900">{value}</span>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'account',
+      label: '권한',
+      render: row => (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+          현재 권한: {ROLE_LABEL[row.role_code] ?? row.role_code}
+        </div>
+      ),
+    },
+  ]
+
   return (
     <div className="p-6">
       <div className="flex items-center gap-3 mb-6">
@@ -73,29 +131,16 @@ export default function UsersPage() {
         <Input placeholder="이름 / 부서 / 코드 검색" value={search} onChange={e => setSearch(e.target.value)} className="w-64" />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>{['사원코드','이름','부서','직위','역할','전화','승인일','상태',''].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {filtered.map(u => (
-              <tr key={u.user_id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-mono text-gray-500">{u.user_code ?? '-'}</td>
-                <td className="px-4 py-3 font-semibold text-gray-900">{u.user_name}{u.user_id === me?.user_id && <span className="ml-1 text-xs text-green-500">(나)</span>}</td>
-                <td className="px-4 py-3 text-gray-500">{u.department ?? '-'}</td>
-                <td className="px-4 py-3 text-gray-500">{u.position_title ?? '-'}</td>
-                <td className="px-4 py-3"><Badge className={ROLE_COLOR[u.role_code] ?? 'bg-gray-100 text-gray-600'}>{ROLE_LABEL[u.role_code] ?? u.role_code}</Badge></td>
-                <td className="px-4 py-3 text-gray-500">{u.phone ?? '-'}</td>
-                <td className="px-4 py-3 text-gray-500">{u.approved_at ? new Date(u.approved_at).toLocaleDateString('ko-KR') : <span className="text-amber-500">미승인</span>}</td>
-                <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${u.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-500'}`}>{u.is_active ? '활성' : '비활성'}</span></td>
-                <td className="px-4 py-3">{me?.role_code === 'ADMIN' && <button onClick={() => openEdit(u)} className="text-xs text-blue-500 hover:underline">수정</button>}</td>
-              </tr>
-            ))}
-            {filtered.length === 0 && <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400">사용자가 없습니다.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <MasterDetailTable
+        data={filtered}
+        columns={columns}
+        getRowId={row => row.user_id}
+        detailTabs={detailTabs}
+        detailTitle={row => row.user_name}
+        detailSubtitle={row => `${row.user_code ?? '-'} · ${ROLE_LABEL[row.role_code] ?? row.role_code}`}
+        emptyMessage="사용자가 없습니다."
+        onEdit={me?.role_code === 'ADMIN' ? openEdit : undefined}
+      />
 
       <Dialog open={editModal} onOpenChange={setEditModal}>
         <DialogContent className="max-w-sm">

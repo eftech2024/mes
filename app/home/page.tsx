@@ -6,6 +6,7 @@ import { Search, Settings, Microscope, CheckCircle2, Truck, Camera, Package, Fac
 import { db } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import { LOT_STATUS_LABEL, LOT_STATUS_COLOR } from '@/lib/supabase'
+import { getPrimaryLotBarcode } from '@/lib/lot-barcode'
 
 interface WorkQueueCount {
   status: string
@@ -37,7 +38,7 @@ export default function HomePage() {
   const { user } = useAuth()
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
-  const [recentLots, setRecentLots] = useState<{ lot_no: string; status: string; product_name: string; updated_at: string }[]>([])
+  const [recentLots, setRecentLots] = useState<{ barcode: string; lot_no: string; status: string; product_name: string; updated_at: string }[]>([])
 
   useEffect(() => {
     const load = async () => {
@@ -51,7 +52,7 @@ export default function HomePage() {
             )
           ),
           db.mes.from('lot_master')
-            .select('lot_no, status, updated_at, work_order_id')
+            .select('lot_no, status, updated_at, work_order_id, lot_barcodes(barcode_value, barcode_type, is_primary)')
             .order('updated_at', { ascending: false })
             .limit(5),
         ])
@@ -65,6 +66,7 @@ export default function HomePage() {
         // Join product name via work_order_id for recent lots (simplified)
         setRecentLots(
           (lotsResult.data ?? []).map(l => ({
+            barcode: getPrimaryLotBarcode((l as any).lot_barcodes, l.lot_no),
             lot_no: l.lot_no,
             status: l.status as string,
             product_name: '-',
@@ -157,10 +159,11 @@ export default function HomePage() {
           <div className="p-8 text-center text-gray-400 text-sm">아직 LOT 없음</div>
         ) : (
           recentLots.map((lot, i) => (
-            <Link key={lot.lot_no} href={`/lot/${lot.lot_no}`}
+            <Link key={lot.barcode} href={`/lot/${encodeURIComponent(lot.barcode)}`}
               className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors ${i > 0 ? 'border-t border-gray-100' : ''}`}>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-mono font-semibold text-gray-800">{lot.lot_no}</p>
+                <p className="text-sm font-mono font-semibold text-gray-800">{lot.barcode}</p>
+                <p className="text-xs text-gray-400 mt-0.5">LOT 참조: {lot.lot_no}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{new Date(lot.updated_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
               </div>
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${LOT_STATUS_COLOR[lot.status as keyof typeof LOT_STATUS_COLOR] ?? 'bg-gray-100 text-gray-600'}`}>

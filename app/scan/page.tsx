@@ -75,8 +75,8 @@ export default function ScanPage() {
     }
 
     setLotInfoMap(prev => ({ ...prev, [code]: info }))
-    setRecognized(prev => [...prev, { barcode: code, label: `${productName} (${lot.lot_no})` }])
-    setFeedback({ ok: true, msg: `${lot.lot_no} — ${LOT_STATUS_LABEL[lot.status as keyof typeof LOT_STATUS_LABEL] ?? lot.status}` })
+    setRecognized(prev => [...prev, { barcode: code, label: `${productName} (${code})` }])
+    setFeedback({ ok: true, msg: `${code} — ${LOT_STATUS_LABEL[lot.status as keyof typeof LOT_STATUS_LABEL] ?? lot.status}` })
   }, [])
 
   const handleCommit = () => {
@@ -84,7 +84,7 @@ export default function ScanPage() {
     // Navigate to first LOT detail if only one scanned
     const barcodes = Object.keys(lotInfoMap)
     if (barcodes.length === 1) {
-      router.push(`/lot/${lotInfoMap[barcodes[0]].lot_no}`)
+      router.push(`/lot/${encodeURIComponent(barcodes[0])}`)
     }
   }
 
@@ -105,13 +105,13 @@ export default function ScanPage() {
           <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wide">스캔 결과</h2>
           {Object.values(lotInfoMap).map(info => (
             <div key={info.barcode}
-              onClick={() => router.push(`/lot/${info.lot_no}`)}
+              onClick={() => router.push(`/lot/${encodeURIComponent(info.barcode)}`)}
               className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm cursor-pointer hover:border-green-300 transition-colors">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-gray-900">{info.product_name}</p>
-                  <p className="text-xs font-mono text-gray-500 mt-0.5">{info.lot_no}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 font-mono">{info.barcode}</p>
+                  <p className="text-xs font-mono text-green-700 mt-0.5">{info.barcode}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 font-mono">LOT 참조: {info.lot_no}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
                   <Badge className={LOT_STATUS_COLOR[info.status as keyof typeof LOT_STATUS_COLOR] ?? ''}>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { db, LOT_STATUS_LABEL, LOT_STATUS_COLOR, LotStatus } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
+import { getPrimaryLotBarcode } from '@/lib/lot-barcode'
 
 interface LotEvent {
   id: string
@@ -16,6 +17,7 @@ interface LotEvent {
 
 interface LotDetail {
   id: string
+  barcode: string
   lot_no: string
   status: LotStatus
   qty_total: number
@@ -68,7 +70,7 @@ const INSP_LABEL: Record<string, string> = {
 export default function LotDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const lotNo = decodeURIComponent(params.barcode as string)
+  const barcodeParam = decodeURIComponent(params.barcode as string)
   const [lot, setLot] = useState<LotDetail | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -77,11 +79,17 @@ export default function LotDetailPage() {
     const load = async () => {
       setLoading(true)
       try {
-        // Get lot_master by lot_no
-        const { data: lotData } = await db.mes.from('lot_master')
-          .select('id, lot_no, status, qty_total, qty_available, inbound_date, work_order_id, product_id')
-          .eq('lot_no', lotNo)
+        const { data: barcodeRow } = await db.mes.from('lot_barcodes')
+          .select('lot_id, barcode_value')
+          .eq('barcode_value', barcodeParam)
           .maybeSingle()
+
+        const lotQuery = db.mes.from('lot_master')
+          .select('id, lot_no, status, qty_total, qty_available, inbound_date, work_order_id, product_id')
+
+        const { data: lotData } = barcodeRow?.lot_id
+          ? await lotQuery.eq('id', barcodeRow.lot_id).maybeSingle()
+          : await lotQuery.eq('lot_no', barcodeParam).maybeSingle()
 
         if (!lotData) { setNotFound(true); setLoading(false); return }
 
@@ -131,8 +139,11 @@ export default function LotDetailPage() {
           resultMap[r.inspection_id].push(r)
         })
 
+        const barcodes = barcodesRes.data ?? []
+
         setLot({
           id: lotData.id,
+          barcode: barcodeRow?.barcode_value ?? getPrimaryLotBarcode(barcodes, lotData.lot_no),
           lot_no: lotData.lot_no,
           status: lotData.status as LotStatus,
           qty_total: lotData.qty_total,
@@ -141,7 +152,7 @@ export default function LotDetailPage() {
           product_name: prodRes.data?.product_name as string ?? '-',
           work_order_no: woRes.data?.work_order_no as string | null ?? null,
           party_name: partyName,
-          barcodes: barcodesRes.data ?? [],
+          barcodes,
           events: eventsRes.data ?? [],
           process_runs: (processRes.data ?? []).map((r: { id: string; process_type: string; started_at: string; status: string; notes: string | null }) => ({
             ...r, params: paramMap[r.id] ?? [],
@@ -158,7 +169,7 @@ export default function LotDetailPage() {
       }
     }
     load()
-  }, [lotNo])
+  }, [barcodeParam])
 
   if (loading) return (
     <div className="flex items-center justify-center h-screen">
@@ -168,8 +179,8 @@ export default function LotDetailPage() {
 
   if (notFound || !lot) return (
     <div className="p-6 text-center">
-      <p className="text-gray-500 font-semibold">LOT를 찾을 수 없습니다</p>
-      <p className="text-sm font-mono text-gray-400 mt-1">{lotNo}</p>
+      <p className="text-gray-500 font-semibold">바코드 또는 LOT를 찾을 수 없습니다</p>
+      <p className="text-sm font-mono text-gray-400 mt-1">{barcodeParam}</p>
       <button onClick={() => router.back()} className="mt-4 text-green-600 font-semibold">← 뒤로</button>
     </div>
   )
@@ -181,7 +192,7 @@ export default function LotDetailPage() {
         <div className="px-4 py-3 flex items-center gap-3 max-w-2xl mx-auto">
           <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700 font-bold text-lg">←</button>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-mono font-bold text-gray-900 truncate">{lot.lot_no}</p>
+            <p className="text-sm font-mono font-bold text-gray-900 truncate">{lot.barcode}</p>
             <p className="text-xs text-gray-500 truncate">{lot.product_name}</p>
           </div>
           <Badge className={LOT_STATUS_COLOR[lot.status] ?? 'bg-gray-100 text-gray-600'}>
@@ -196,6 +207,8 @@ export default function LotDetailPage() {
           <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">기본 정보</h2>
           <div className="grid grid-cols-2 gap-3">
             {[
+              { label: '바코드', value: lot.barcode },
+              { label: 'LOT 참조', value: lot.lot_no },
               { label: '품목', value: lot.product_name },
               { label: '총 수량', value: `${lot.qty_total}개` },
               { label: '가용 수량', value: `${lot.qty_available}개` },

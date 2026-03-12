@@ -36,6 +36,8 @@ export const 차종코드Map: Record<string, string> = {
   'DC': '0403', 'NN': '1414', 'QS': '1719', 'PT': '1620',
 }
 
+export const 차종목록 = Object.keys(차종코드Map)
+
 /**
  * 바코드를 생성한다.
  * 형식: 순번(2자리) + YY(2) + MM(2) + DD(2) + 차종코드(4자리) = 12자리

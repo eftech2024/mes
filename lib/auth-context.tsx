@@ -11,6 +11,8 @@ import {
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { supabase, db, type SysUser } from '@/lib/supabase'
 
+const AUTH_TIMEOUT_MS = 5000
+
 export interface AuthUser extends SysUser {
   email: string | null
 }
@@ -31,6 +33,13 @@ const AuthContext = createContext<AuthContextType>({
   signup:  async () => ({ ok: false }),
 })
 
+function withTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs = AUTH_TIMEOUT_MS): Promise<T> {
+  return Promise.race([
+    promise.catch(() => fallback),
+    new Promise<T>(resolve => setTimeout(() => resolve(fallback), timeoutMs)),
+  ])
+}
+
 async function fetchProfile(supabaseUser: SupabaseUser): Promise<AuthUser | null> {
   const { data } = await db.sys
     .from('users')
@@ -41,32 +50,57 @@ async function fetchProfile(supabaseUser: SupabaseUser): Promise<AuthUser | null
   return { ...(data as SysUser), email: supabaseUser.email ?? null }
 }
 
+async function safeFetchProfile(supabaseUser: SupabaseUser): Promise<AuthUser | null> {
+  return withTimeout(fetchProfile(supabaseUser), null)
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser]       = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // 최초 세션 확인
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    let active = true
+
+    const emptySessionResult = {
+      data: { session: null },
+      error: null,
+    } as Awaited<ReturnType<typeof supabase.auth.getSession>>
+
+    const syncSession = async (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+      if (!active) return
+
       if (session?.user) {
-        const profile = await fetchProfile(session.user)
+        const profile = await safeFetchProfile(session.user)
+        if (!active) return
         setUser(profile)
+        return
       }
-      setLoading(false)
-    })
+
+      setUser(null)
+    }
+
+    void (async () => {
+      try {
+        const { data: { session } } = await withTimeout(supabase.auth.getSession(), emptySessionResult)
+        await syncSession(session)
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
 
     // 세션 변경 구독
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const profile = await fetchProfile(session.user)
-        setUser(profile)
-      } else {
-        setUser(null)
+      try {
+        await syncSession(session)
+      } finally {
+        if (active && event !== 'INITIAL_SESSION') setLoading(false)
       }
-      if (event !== 'INITIAL_SESSION') setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
@@ -74,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { ok: false, error: error.message }
     if (!data.user) return { ok: false, error: '로그인 실패' }
 
-    const profile = await fetchProfile(data.user)
+    const profile = await safeFetchProfile(data.user)
     if (!profile) return { ok: false, error: '사용자 정보를 찾을 수 없습니다.' }
     if (!profile.is_active) return { ok: false, error: '승인 대기 중입니다. 관리자에게 문의하세요.' }
 

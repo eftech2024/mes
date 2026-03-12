@@ -207,16 +207,26 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {})
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(registration => registration.update().catch(() => {}))
+        .catch(() => {})
     }
   }, [])
 
+  useEffect(() => {
+    if (loading || isLotDetailPage) return
+
+    if (isAuthPage) {
+      if (user && pathname === '/login') router.replace('/home')
+      return
+    }
+
+    if (!user) router.replace('/login')
+  }, [isAuthPage, isLotDetailPage, loading, pathname, router, user])
+
   if (isLotDetailPage) return <>{children}</>
 
-  if (isAuthPage) {
-    if (!loading && user && pathname === '/login') { router.replace('/home'); return null }
-    return <>{children}</>
-  }
+  if (isAuthPage) return <>{children}</>
 
   if (loading) {
     return (
@@ -226,7 +236,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!user) { router.replace('/login'); return null }
+  if (!user) return null
 
   return (
     <>
