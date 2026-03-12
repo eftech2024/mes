@@ -32,9 +32,12 @@ const AuthContext = createContext<AuthContextType>({
 })
 
 async function fetchProfile(supabaseUser: SupabaseUser): Promise<AuthUser | null> {
-  // public.get_my_profile() RPC를 사용 — sys 스키마 직접 접근 불필요
-  const { data, error } = await supabase.rpc('get_my_profile')
-  if (error || !data) return null
+  const { data } = await db.sys
+    .from('users')
+    .select('*')
+    .eq('user_id', supabaseUser.id)
+    .single()
+  if (!data) return null
   return { ...(data as SysUser), email: supabaseUser.email ?? null }
 }
 

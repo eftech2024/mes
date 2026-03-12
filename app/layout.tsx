@@ -234,7 +234,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
       <div className="hidden md:flex h-screen">
         <nav className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
           <div className="px-4 py-4 border-b border-gray-100 flex items-center">
-            <Image src="/logo-h.png" alt="EF Technology" width={168} height={48} className="object-contain" priority />
+            <Link href="/home">
+              <Image src="/logo-h.png" alt="EF Technology" width={168} height={48} className="object-contain" priority />
+            </Link>
           </div>
           <div className="flex-1 p-2 space-y-0.5 overflow-y-auto">
             {PC_NAV.map((item, i) => {
@@ -276,7 +278,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
       {/*  모바일 레이아웃  */}
       <div className="flex flex-col md:hidden h-dvh">
         <header className="bg-white border-b border-gray-200 px-4 py-2.5 flex-shrink-0 flex items-center">
-          <Image src="/logo-h.png" alt="EF Technology" width={140} height={36} className="object-contain" priority />
+          <Link href="/home">
+            <Image src="/logo-h.png" alt="EF Technology" width={140} height={36} className="object-contain" priority />
+          </Link>
           <span className="ml-auto text-[10px] text-gray-400 font-medium">{user.user_name || user.email}</span>
           <button onClick={logout} className="ml-2 text-[10px] text-gray-400 hover:text-red-500 font-semibold">로그아웃</button>
         </header>
