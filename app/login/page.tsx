@@ -1,28 +1,46 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, user, loading } = useAuth()
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  // 이미 로그인된 세션이 있으면 홈으로 자동 이동
+  useEffect(() => {
+    if (!loading && user) router.replace('/home')
+  }, [loading, user, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !password) return
-    setLoading(true)
+    setSubmitting(true)
     setError(null)
     const result = await login(email, password)
-    if (!result.ok) setError(result.error ?? '로그인 실패')
-    setLoading(false)
+    if (!result.ok) {
+      setError(result.error ?? '로그인 실패')
+      setSubmitting(false)
+    }
+    // 성공 시 useEffect가 user 변경을 감지해 자동 redirect
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-b-2 border-green-500 rounded-full animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -47,10 +65,13 @@ export default function LoginPage() {
                 autoComplete="current-password" required />
             </div>
             {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? '로그인 중...' : '로그인'}
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? '로그인 중...' : '로그인'}
             </Button>
           </form>
+          <p className="mt-3 text-[11px] text-gray-400 text-center">
+            로그인 상태는 자동으로 유지됩니다
+          </p>
           <p className="mt-4 text-center text-sm text-gray-500">
             계정이 없으신가요?{' '}
             <Link href="/signup" className="text-green-600 font-semibold hover:underline">회원가입</Link>
@@ -60,3 +81,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

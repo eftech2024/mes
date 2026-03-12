@@ -32,12 +32,9 @@ const AuthContext = createContext<AuthContextType>({
 })
 
 async function fetchProfile(supabaseUser: SupabaseUser): Promise<AuthUser | null> {
-  const { data } = await db.sys
-    .from('users')
-    .select('*')
-    .eq('user_id', supabaseUser.id)
-    .single()
-  if (!data) return null
+  // public.get_my_profile() RPC를 사용 — sys 스키마 직접 접근 불필요
+  const { data, error } = await supabase.rpc('get_my_profile')
+  if (error || !data) return null
   return { ...(data as SysUser), email: supabaseUser.email ?? null }
 }
 
@@ -87,22 +84,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
-  const signup = useCallback(async (email: string, password: string, name: string, code?: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password })
+  const signup = useCallback(async (email: string, password: string, name: string, department?: string) => {
+    // 1) Supabase Auth 회원가입 — 이름을 메타데이터로 전달 (트리거가 sys.users 자동 생성)
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { user_name: name } },
+    })
     if (error) return { ok: false, error: error.message }
     if (!data.user) return { ok: false, error: '회원가입 실패' }
 
-    // sys.users 프로파일 생성 (승인 대기)
-    const { error: profileErr } = await db.sys
-      .from('users')
-      .insert({
-        user_id:   data.user.id,
-        user_code: code ?? null,
-        user_name: name,
-        role_code: 'OPERATOR',
-        is_active: false,
-      })
-    if (profileErr) return { ok: false, error: '프로파일 생성 실패: ' + profileErr.message }
+    // 2) 트리거가 sys.users 행을 생성한 후 부서 정보 업데이트
+    //    (잠깐 대기 후 RPC 호출 — 트리거 실행 시간 확보)
+    await new Promise(r => setTimeout(r, 800))
+    await supabase.rpc('update_signup_profile', {
+      p_user_id:    data.user.id,
+      p_user_name:  name,
+      p_department: department ?? null,
+    })
 
     return { ok: true }
   }, [])
