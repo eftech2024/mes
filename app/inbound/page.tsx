@@ -15,7 +15,7 @@ import { toast } from '@/components/ui/use-toast'
 import { Badge } from '@/components/ui/badge'
 
 interface Product { id: string; product_name: string; product_code: string }
-interface WorkOrder { id: string; work_order_no: string; qty_ordered: number; product_id: string; product_name?: string }
+interface WorkOrder { id: string; work_order_no: string; qty_planned: number; product_id: string; product_name?: string }
 
 interface InboundItem {
   work_order_id: string
@@ -56,8 +56,8 @@ export default function InboundPage() {
     const load = async () => {
       const [woRes, prodRes] = await Promise.all([
         db.mes.from('work_orders')
-          .select('id, work_order_no, qty_ordered, product_id')
-          .in('status', ['PENDING', 'RELEASED'])
+          .select('id, work_order_no, qty_planned, product_id')
+          .in('status', ['RELEASED'])
           .order('work_order_no', { ascending: false })
           .limit(50),
         db.mdm.from('products')
@@ -88,7 +88,7 @@ export default function InboundPage() {
     set('work_order_no', wo.work_order_no)
     set('product_id', wo.product_id)
     set('product_name', wo.product_name ?? '')
-    set('qty', wo.qty_ordered)
+    set('qty', wo.qty_planned)
   }
 
   // Generate barcodes from sequential numbers for qty
@@ -96,8 +96,7 @@ export default function InboundPage() {
     const barcodes: string[] = []
     const d = new Date(date)
     for (let i = 0; i < qty; i++) {
-      const seq = await db.mes.rpc('next_barcode_seq') as { data: number }
-      const seqNo = (seq.data ?? Math.floor(Math.random() * 99) + 1)
+      const seqNo = Math.floor(Math.random() * 99) + 1
       barcodes.push(generateBarcode(seqNo, d, vehicleName))
     }
     return barcodes

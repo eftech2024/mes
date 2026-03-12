@@ -2,19 +2,23 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { CalendarOff } from 'lucide-react'
-import { supabase, 작업지시서Type, 판매계획Type } from '@/lib/supabase'
+import { db } from '@/lib/supabase'
 
 type ViewMode = '주' | '월' | '년'
 
+interface WORow { id: string; work_order_no: string; status: string; planned_start: string | null; planned_end: string | null; qty_planned: number; product_id: string; delivery_plan_id: string | null }
+interface PlanRow { id: string; plan_no: string; status: string; planned_delivery_date: string | null; total_qty: number; party_id: string | null; product_id: string | null; created_at: string }
+
 const PROC_COLOR: Record<string, string> = {
-  '연질': 'bg-sky-500',
-  '경질': 'bg-violet-500',
-  '본딩': 'bg-orange-500',
+  'ANODIZING': 'bg-sky-500',
+  'BONDING': 'bg-orange-500',
+  'OTHER_POST': 'bg-violet-500',
 }
+const PROC_LABEL: Record<string, string> = { ANODIZING: '아노다이징', BONDING: '본딩', OTHER_POST: '기타 후공정' }
 const PROC_BTN: Record<string, string> = {
-  '연질': 'bg-sky-500 text-white',
-  '경질': 'bg-violet-500 text-white',
-  '본딩': 'bg-orange-500 text-white',
+  'ANODIZING': 'bg-sky-500 text-white',
+  'BONDING': 'bg-orange-500 text-white',
+  'OTHER_POST': 'bg-violet-500 text-white',
 }
 const MONTH_LABELS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월']
 
@@ -35,8 +39,7 @@ interface GItem {
 }
 
 export default function GanttPage() {
-  const [orders, setOrders] = useState<작업지시서Type[]>([])
-  const [plans,  setPlans]  = useState<판매계획Type[]>([])
+  const [items, setItems] = useState<GItem[]>([])
   const [loading, setLoading] = useState(true)
 
   const [viewMode, setViewMode] = useState<ViewMode>('월')
@@ -47,25 +50,84 @@ export default function GanttPage() {
   const [filterProc, setFilterProc]   = useState('전체')
 
   const fetchAll = useCallback(async () => {
-    const [{ data: o }, { data: p }] = await Promise.all([
-      supabase.from('작업지시서').select('*, 업체:고객id(업체명), 품목:품목id(품명,공정)')
-        .neq('상태', '완료').order('납기예정일'),
-      supabase.from('판매계획').select('*, 업체:고객id(업체명), 품목:품목id(품명,공정)')
-        .neq('상태', '완료').order('납품요청일'),
+    const [woRes, planRes] = await Promise.all([
+      db.mes.from('work_orders')
+        .select('id, work_order_no, status, planned_start, planned_end, qty_planned, product_id, delivery_plan_id')
+        .not('status', 'eq', 'COMPLETED')
+        .order('planned_end'),
+      db.mes.from('delivery_plans')
+        .select('id, plan_no, status, planned_delivery_date, total_qty, party_id, product_id, created_at')
+        .not('status', 'eq', 'COMPLETED')
+        .order('planned_delivery_date'),
     ])
-    if (o) setOrders(o as unknown as 작업지시서Type[])
-    if (p) setPlans(p  as unknown as 판매계획Type[])
+    const wos = (woRes.data ?? []) as WORow[]
+    const plans = (planRes.data ?? []) as PlanRow[]
+
+    // Gather product IDs and party IDs
+    const productIds = [...new Set([
+      ...wos.map(w => w.product_id),
+      ...plans.map(p => p.product_id).filter(Boolean),
+    ].filter(Boolean))]
+    const planIds = [...new Set(wos.map(w => w.delivery_plan_id).filter(Boolean))]
+    const partyIds = [...new Set(plans.map(p => p.party_id).filter(Boolean))]
+
+    const [prodRes, planDetailRes, partyRes] = await Promise.all([
+      productIds.length > 0
+        ? db.mdm.from('products').select('id, product_name, default_process_type').in('id', productIds)
+        : Promise.resolve({ data: [] }),
+      planIds.length > 0
+        ? db.mes.from('delivery_plans').select('id, party_id').in('id', planIds as string[])
+        : Promise.resolve({ data: [] }),
+      partyIds.length > 0
+        ? db.core.from('parties').select('id, party_name').in('id', partyIds as string[])
+        : Promise.resolve({ data: [] }),
+    ])
+    // Get party IDs from WO → plan links
+    const woPartyIds = [...new Set((planDetailRes.data ?? []).map((p: any) => p.party_id).filter(Boolean))]
+    const { data: woParties } = woPartyIds.length > 0
+      ? await db.core.from('parties').select('id, party_name').in('id', woPartyIds)
+      : { data: [] }
+
+    const prodMap: Record<string, any> = {}
+    ;(prodRes.data ?? []).forEach((p: any) => { prodMap[p.id] = p })
+    const planPartyMap: Record<string, string> = {}
+    ;(planDetailRes.data ?? []).forEach((p: any) => { planPartyMap[p.id] = p.party_id })
+    const partyMap: Record<string, string> = {}
+    ;(partyRes.data ?? []).forEach((p: any) => { partyMap[p.id] = p.party_name })
+    ;(woParties ?? []).forEach((p: any) => { partyMap[p.id] = p.party_name })
+
+    const gItems: GItem[] = [
+      ...wos.map(w => {
+        const prod = prodMap[w.product_id]
+        const partyId = planPartyMap[w.delivery_plan_id ?? '']
+        return {
+          id: w.id, type: '작업' as const,
+          품명: prod?.product_name ?? '-',
+          고객사: partyId ? (partyMap[partyId] ?? '-') : '-',
+          공정: prod?.default_process_type ?? 'ANODIZING',
+          start: toDate(w.planned_start ?? w.planned_end ?? new Date().toISOString()),
+          end: toDate(w.planned_end ?? w.planned_start ?? new Date().toISOString()),
+          status: w.status, urgent: false,
+        }
+      }),
+      ...plans.map(p => {
+        const prod = prodMap[p.product_id ?? '']
+        return {
+          id: p.id, type: '계획' as const,
+          품명: prod?.product_name ?? p.plan_no,
+          고객사: p.party_id ? (partyMap[p.party_id] ?? '-') : '-',
+          공정: prod?.default_process_type ?? 'ANODIZING',
+          start: toDate(p.created_at),
+          end: toDate(p.planned_delivery_date ?? p.created_at),
+          status: p.status, urgent: false,
+        }
+      }),
+    ]
+    setItems(gItems)
     setLoading(false)
   }, [])
 
-  useEffect(() => {
-    fetchAll()
-    const ch = supabase.channel('gantt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: '작업지시서' }, fetchAll)
-      .on('postgres_changes', { event: '*', schema: 'public', table: '판매계획' }, fetchAll)
-      .subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [fetchAll])
+  useEffect(() => { fetchAll() }, [fetchAll])
 
   const today = useMemo(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d
@@ -103,42 +165,21 @@ export default function GanttPage() {
   )
 
   /* ── 전체 아이템 목록 ────────────────────────── */
-  const allItems = useMemo<GItem[]>(() => [
-    ...orders.map(o => ({
-      id: o.id, type: '작업' as const,
-      품명:   (o.품목 as { 품명:string }|null)?.품명 ?? o.품목id ?? '—',
-      고객사: (o.업체 as { 업체명:string }|null)?.업체명 ?? o.고객id ?? '—',
-      공정:   (o.품목 as { 공정:string }|null)?.공정 ?? o.공정구분,
-      start:  toDate(o.created_at),
-      end:    toDate(o.납기예정일),
-      status: o.상태, urgent: o.우선순위 === '긴급',
-    })),
-    ...plans.map(p => ({
-      id: p.id, type: '계획' as const,
-      품명:   (p.품목 as { 품명:string }|null)?.품명 ?? p.품목id ?? '—',
-      고객사: (p.업체 as { 업체명:string }|null)?.업체명 ?? p.고객id ?? '—',
-      공정:   (p.품목 as { 공정:string }|null)?.공정 ?? '—',
-      start:  toDate(p.등록일),
-      end:    toDate(p.납품요청일),
-      status: p.상태, urgent: p.긴급여부,
-    })),
-  ], [orders, plans])
 
   /* ── 필터링 ──────────────────────────────────── */
-  const items = useMemo(() => {
+  const filteredItems = useMemo(() => {
     const fs = filterStart ? toDate(filterStart) : null
     const fe = filterEnd   ? toDate(filterEnd)   : null
-    return allItems
+    return items
       .filter(it => {
         if (filterType !== '전체' && it.type !== filterType) return false
         if (filterProc !== '전체' && it.공정 !== filterProc) return false
         if (fs && it.end < fs) return false
         if (fe && it.start > fe) return false
-        // 뷰 범위와의 겹침 확인
         return it.end >= addDays(viewStart, -90) && it.start <= addDays(viewEnd, 90)
       })
       .sort((a, b) => a.end.getTime() - b.end.getTime())
-  }, [allItems, filterType, filterProc, filterStart, filterEnd, viewStart, viewEnd])
+  }, [items, filterType, filterProc, filterStart, filterEnd, viewStart, viewEnd])
 
   /* ── 바 위치 계산 ────────────────────────────── */
   function barStyle(item: GItem): React.CSSProperties {
@@ -180,7 +221,7 @@ export default function GanttPage() {
         <div>
           <h2 className="text-xl font-bold text-gray-900">생산 일정표</h2>
           <p className="text-sm text-gray-400 mt-0.5">
-            작업지시 {orders.length}건 · 판매계획 {plans.length}건
+            일정 {items.length}건
           </p>
         </div>
 
@@ -241,14 +282,14 @@ export default function GanttPage() {
 
         {/* 공정 필터 */}
         <div className="flex items-center gap-1">
-          {['전체','연질','경질','본딩'].map(p => (
+          {['전체','ANODIZING','BONDING','OTHER_POST'].map(p => (
             <button key={p} onClick={() => setFilterProc(p)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                 filterProc === p
                   ? p === '전체' ? 'bg-gray-700 text-white' : PROC_BTN[p]
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}>
-              {p}
+              {p === '전체' ? p : PROC_LABEL[p] ?? p}
             </button>
           ))}
         </div>
@@ -282,7 +323,7 @@ export default function GanttPage() {
         {Object.entries(PROC_COLOR).map(([proc, cls]) => (
           <span key={proc} className="flex items-center gap-1.5">
             <span className={`w-4 h-2.5 rounded-sm ${cls} inline-block`}/>
-            {proc} 작업
+            {PROC_LABEL[proc] ?? proc}
           </span>
         ))}
         <span className="flex items-center gap-1.5">
@@ -355,7 +396,7 @@ export default function GanttPage() {
 
             {/* 아이템 행 */}
             <div className="space-y-1">
-              {items.map(item => {
+              {filteredItems.map(item => {
                 const barCls = item.type === '계획'
                   ? 'bg-green-100 border border-green-400 text-green-800'
                   : `${PROC_COLOR[item.공정] ?? 'bg-teal-500'} text-white`
