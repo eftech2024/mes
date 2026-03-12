@@ -99,6 +99,8 @@ create table if not exists mdm.products (
   default_process_type text not null default 'ANODIZING'
                          check (default_process_type in ('ANODIZING','BONDING','OTHER_POST')),
   unit_price           numeric(18,2),
+  mass_production_qty  integer,                        -- 양산 계획수량
+  weekly_production_qty integer,                       -- 주간 생산량 (5일 기준)
   is_active            boolean not null default true,
   remarks              text,
   created_by           uuid references sys.users(user_id) on delete set null,

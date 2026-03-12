@@ -32,6 +32,8 @@ interface Product {
   product_code: string
   vehicle_name: string
   customer_party_id: string | null
+  weekly_production_qty: number | null
+  mass_production_qty: number | null
 }
 
 interface DeliveryPlan {
@@ -49,13 +51,11 @@ const WO_STATUS: Record<string, { label: string; color: string }> = {
   CANCELLED:   { label: '취소',    color: 'bg-red-100 text-red-700' },
 }
 
-// 수량별 기본 리드타임 (일)
-const calcLeadDays = (qty: number): number => {
-  if (qty <= 100) return 1
-  if (qty <= 300) return 2
-  if (qty <= 700) return 3
-  if (qty <= 1500) return 5
-  return 7
+// 품목의 주간생산량(5일 기준)으로 리드타임 계산
+// leadDays = ceil(수량 / 주간생산량) * 5
+const calcLeadDays = (qty: number, weeklyQty: number | null): number => {
+  if (!weeklyQty || weeklyQty <= 0) return 5   // 기준 없으면 기본 5일
+  return Math.max(1, Math.ceil(qty / weeklyQty) * 5)
 }
 
 const addDays = (dateStr: string, days: number): string => {
@@ -129,7 +129,7 @@ export default function WorkOrderPage() {
   const openModal = async () => {
     const today = todayStr()
     const [prodRes, planRes] = await Promise.all([
-      db.mdm.from('products').select('id, product_name, product_code, vehicle_name, customer_party_id').eq('is_active', true).order('product_name').limit(500),
+      db.mdm.from('products').select('id, product_name, product_code, vehicle_name, customer_party_id, weekly_production_qty, mass_production_qty').eq('is_active', true).order('product_name').limit(500),
       db.mes.from('delivery_plans').select('id, plan_no, party_id, product_id').eq('status', 'OPEN').order('created_at', { ascending: false }),
     ])
     const partyIds = [...new Set((planRes.data ?? []).map((p: any) => p.party_id))]
@@ -147,7 +147,7 @@ export default function WorkOrderPage() {
     const prod = products.find(p => p.id === productId) ?? null
     setSelectedProduct(prod)
     const qty = Number(prevForm.qty_planned) || 0
-    const end = qty > 0 ? addDays(prevForm.planned_start || todayStr(), calcLeadDays(qty)) : prevForm.planned_end
+    const end = qty > 0 ? addDays(prevForm.planned_start || todayStr(), calcLeadDays(qty, prod?.weekly_production_qty ?? null)) : prevForm.planned_end
     return { ...prevForm, product_id: productId, planned_end: end }
   }
 
@@ -172,7 +172,7 @@ export default function WorkOrderPage() {
     const qty = Number(value) || 0
     setForm(f => {
       const start = f.planned_start || todayStr()
-      const end = qty > 0 ? addDays(start, calcLeadDays(qty)) : f.planned_end
+      const end = qty > 0 ? addDays(start, calcLeadDays(qty, selectedProduct?.weekly_production_qty ?? null)) : f.planned_end
       return { ...f, qty_planned: value, planned_end: end }
     })
   }
@@ -180,7 +180,7 @@ export default function WorkOrderPage() {
   const handleStartChange = (start: string) => {
     setForm(f => {
       const qty = Number(f.qty_planned) || 0
-      const end = qty > 0 ? addDays(start, calcLeadDays(qty)) : f.planned_end
+      const end = qty > 0 ? addDays(start, calcLeadDays(qty, selectedProduct?.weekly_production_qty ?? null)) : f.planned_end
       return { ...f, planned_start: start, planned_end: end }
     })
   }
@@ -296,9 +296,10 @@ export default function WorkOrderPage() {
               </Select>
             </div>
             {selectedProduct && (
-              <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg text-sm">
+              <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg text-sm">
                 <div><span className="text-gray-500 text-xs">품번</span><p className="font-mono font-medium">{selectedProduct.product_code ?? '-'}</p></div>
                 <div><span className="text-gray-500 text-xs">차종</span><p className="font-medium">{selectedProduct.vehicle_name ?? '-'}</p></div>
+                <div><span className="text-gray-500 text-xs">주간생산량</span><p className="font-medium">{selectedProduct.weekly_production_qty ? `${selectedProduct.weekly_production_qty.toLocaleString()}개/주` : '미설정'}</p></div>
               </div>
             )}
             <div>
@@ -315,7 +316,7 @@ export default function WorkOrderPage() {
                 <Input type="date" className="mt-1" value={form.planned_end} onChange={e => setForm(f => ({ ...f, planned_end: e.target.value }))} />
               </div>
             </div>
-            <p className="text-xs text-gray-400">리드타임 기준: ≤100개=1일 · ≤300개=2일 · ≤700개=3일 · ≤1500개=5일 · 초과=7일</p>
+            <p className="text-xs text-gray-400">리드타임 = ⌈수량 ÷ 주간생산량⌉ × 5일 (주간생산량 미설정 시 기본 5일)</p>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setModalOpen(false)}>취소</Button>
               <Button onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-700">{saving ? '저장 중…' : '저장'}</Button>

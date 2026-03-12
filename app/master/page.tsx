@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import Link from 'next/link'
 
-interface Product { id: string; product_code: string; product_name: string; vehicle_name: string | null; default_process_type: string; is_active: boolean; customer_name?: string }
+interface Product { id: string; product_code: string; product_name: string; vehicle_name: string | null; default_process_type: string; is_active: boolean; customer_name?: string; weekly_production_qty: number | null; mass_production_qty: number | null }
 interface Party { id: string; party_code: string; party_name: string; party_type: string; is_active: boolean }
 interface Contact { id: string; party_id: string; contact_name: string; department: string | null; phone: string | null; email: string | null; is_primary: boolean; party_name?: string }
 
@@ -25,7 +25,7 @@ export default function MasterPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [prodSearch, setProdSearch] = useState('')
   const [prodModal, setProdModal] = useState(false)
-  const [prodForm, setProdForm] = useState({ product_code: '', product_name: '', vehicle_name: '', customer_party_id: '', default_process_type: 'ANODIZING' })
+  const [prodForm, setProdForm] = useState({ product_code: '', product_name: '', vehicle_name: '', customer_party_id: '', default_process_type: 'ANODIZING', weekly_production_qty: '', mass_production_qty: '' })
   const [prodSaving, setProdSaving] = useState(false)
 
   // Parties
@@ -44,7 +44,7 @@ export default function MasterPage() {
 
   const loadProducts = useCallback(async () => {
     const { data } = await db.mdm.from('products')
-      .select('id, product_code, product_name, vehicle_name, default_process_type, is_active, customer_party_id')
+      .select('id, product_code, product_name, vehicle_name, default_process_type, is_active, customer_party_id, weekly_production_qty, mass_production_qty')
       .order('product_name').limit(500)
     if (!data) return
     const customerIds = [...new Set(data.map((r: any) => r.customer_party_id).filter(Boolean))]
@@ -84,6 +84,8 @@ export default function MasterPage() {
       vehicle_name: prodForm.vehicle_name || null,
       customer_party_id: prodForm.customer_party_id || null,
       default_process_type: prodForm.default_process_type,
+      weekly_production_qty: prodForm.weekly_production_qty ? Number(prodForm.weekly_production_qty) : null,
+      mass_production_qty: prodForm.mass_production_qty ? Number(prodForm.mass_production_qty) : null,
       is_active: true,
       created_by: user?.user_id,
     })
@@ -148,12 +150,12 @@ export default function MasterPage() {
         <TabsContent value="products">
           <div className="flex gap-3 mb-4">
             <Input placeholder="품목명 / 코드 / 차종 검색" value={prodSearch} onChange={e => setProdSearch(e.target.value)} className="w-72" />
-            <Button onClick={() => { setProdForm({ product_code: '', product_name: '', vehicle_name: '', customer_party_id: '', default_process_type: 'ANODIZING' }); setProdModal(true) }} className="bg-green-600 hover:bg-green-700">+ 품목 등록</Button>
+            <Button onClick={() => { setProdForm({ product_code: '', product_name: '', vehicle_name: '', customer_party_id: '', default_process_type: 'ANODIZING', weekly_production_qty: '', mass_production_qty: '' }); setProdModal(true) }} className="bg-green-600 hover:bg-green-700">+ 품목 등록</Button>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>{['품목코드','품목명','차종','고객사','공정','사양','활성'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
+                <tr>{['품목코드','품목명','차종','고객사','공정','양산수량','주간생산량','활성'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredProds.map(p => (
@@ -165,11 +167,12 @@ export default function MasterPage() {
                     <td className="px-4 py-3 text-gray-500">{p.vehicle_name ?? '-'}</td>
                     <td className="px-4 py-3 text-gray-500">{p.customer_name ?? '-'}</td>
                     <td className="px-4 py-3 text-gray-500">{PROCESS_LABEL[p.default_process_type] ?? p.default_process_type}</td>
-                    <td className="px-4 py-3"><Link href={`/master/products/${p.id}`} className="text-xs text-blue-500 hover:underline">상세 →</Link></td>
+                    <td className="px-4 py-3 text-right text-gray-500">{p.mass_production_qty ? p.mass_production_qty.toLocaleString() : '-'}</td>
+                    <td className="px-4 py-3 text-right text-gray-500">{p.weekly_production_qty ? p.weekly_production_qty.toLocaleString() : '-'}</td>
                     <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>{p.is_active ? '활성' : '비활성'}</span></td>
                   </tr>
                 ))}
-                {filteredProds.length === 0 && <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400">품목이 없습니다.</td></tr>}
+                {filteredProds.length === 0 && <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400">품목이 없습니다.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -240,6 +243,10 @@ export default function MasterPage() {
               <div><Label>차종</Label><Input className="mt-1" value={prodForm.vehicle_name} onChange={e => setProdForm(f => ({ ...f, vehicle_name: e.target.value }))} /></div>
             </div>
             <div><Label>품목명 *</Label><Input className="mt-1" value={prodForm.product_name} onChange={e => setProdForm(f => ({ ...f, product_name: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>양산 계획수량</Label><Input type="number" min={0} className="mt-1" placeholder="총 양산 수량" value={prodForm.mass_production_qty} onChange={e => setProdForm(f => ({ ...f, mass_production_qty: e.target.value }))} /></div>
+              <div><Label>주간 생산량 <span className="text-gray-400 text-xs">(5일 기준)</span></Label><Input type="number" min={0} className="mt-1" placeholder="주당 처리 수량" value={prodForm.weekly_production_qty} onChange={e => setProdForm(f => ({ ...f, weekly_production_qty: e.target.value }))} /></div>
+            </div>
             <div>
               <Label>고객사</Label>
               <Select value={prodForm.customer_party_id || 'NONE'} onValueChange={v => setProdForm(f => ({ ...f, customer_party_id: v === 'NONE' ? '' : v }))}>
