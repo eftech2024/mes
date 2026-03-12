@@ -99,10 +99,10 @@ export default function ProcessesPage() {
               <div><Label>코드 *</Label><Input className="mt-1" value={defectForm.defect_code} onChange={e => setDefectForm(f => ({ ...f, defect_code: e.target.value }))} /></div>
               <div>
                 <Label>공정 유형</Label>
-                <Select value={defectForm.process_type_code} onValueChange={v => setDefectForm(f => ({ ...f, process_type_code: v }))}>
+                <Select value={defectForm.process_type_code || 'NONE'} onValueChange={v => setDefectForm(f => ({ ...f, process_type_code: v === 'NONE' ? '' : v }))}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="공통" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">공통</SelectItem>
+                    <SelectItem value="NONE">공통</SelectItem>
                     <SelectItem value="ANODIZING">아노다이징</SelectItem>
                     <SelectItem value="BONDING">본딩</SelectItem>
                     <SelectItem value="OTHER_POST">기타</SelectItem>

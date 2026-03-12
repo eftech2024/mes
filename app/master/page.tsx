@@ -242,9 +242,12 @@ export default function MasterPage() {
             <div><Label>품목명 *</Label><Input className="mt-1" value={prodForm.product_name} onChange={e => setProdForm(f => ({ ...f, product_name: e.target.value }))} /></div>
             <div>
               <Label>고객사</Label>
-              <Select value={prodForm.customer_party_id} onValueChange={v => setProdForm(f => ({ ...f, customer_party_id: v }))}>
+              <Select value={prodForm.customer_party_id || 'NONE'} onValueChange={v => setProdForm(f => ({ ...f, customer_party_id: v === 'NONE' ? '' : v }))}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="고객사 선택 (선택)" /></SelectTrigger>
-                <SelectContent>{parties.filter(p => p.party_type === 'CUSTOMER' || p.party_type === 'BOTH').map(p => <SelectItem key={p.id} value={p.id}>{p.party_name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  <SelectItem value="NONE">선택 안함</SelectItem>
+                  {parties.filter(p => p.party_type === 'CUSTOMER' || p.party_type === 'BOTH').map(p => <SelectItem key={p.id} value={p.id}>{p.party_name}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
             <div>
