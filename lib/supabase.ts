@@ -585,3 +585,101 @@ export interface MeasurementTool {
   remarks:                   string | null
   created_at:                string
 }
+// ─── 작업지시서 ───────────────────────────────────────────
+export interface 작업지시서Type {
+  id:          string
+  작업번호:    number        // AUTO SERIAL — WO-0001 형식 표시용
+  판매계획id:  string | null
+  고객id:      string | null
+  품목id:      string | null
+  공정구분:    string
+  우선순위:    string        // '긴급' | '보통' | '낮음'
+  로트수량:    number
+  납기예정일:  string
+  상태:        string        // '대기' | '진행중' | '완료'  (바코드 공정상태에서 자동 유도)
+  완료일:      string | null
+  메모:        string | null
+  바코드id:    string | null
+  created_at:  string
+  // nested
+  업체?:       { 업체명: string } | null
+  품목?:       { 품명: string; 공정: string } | null
+  바코드?:     { 바코드: string; 공정상태: string } | null
+}
+
+// ─── 바코드 ───────────────────────────────────────────────
+export interface 바코드Type {
+  id:           string
+  순번:         number
+  품목id:       string | null
+  고객id:       string | null
+  lot_no:       string | null
+  lot수량:      number
+  차종:         string | null
+  입고일:       string | null
+  바코드:       string | null
+  공정상태:     string   // '입고대기' | '수입검사' | '공정진행' | '출하검사' | '출고완료'
+  메모:         string | null
+  작업지시서id: string | null
+  created_at:   string
+  // 공정 단계별 타임스탬프
+  수입검사일시: string | null
+  공정진행일시: string | null
+  출하검사일시: string | null
+  출고완료일시: string | null
+  // 공정별 검사 데이터 (JSON 문자열 - 레거시 호환)
+  수입검사데이터: string | null
+  공정진행데이터: string | null
+  출하검사데이터: string | null
+  // 출고 정보
+  출고일자: string | null
+  출고수량: number | null
+  // nested
+  품목?:        { 품명: string; 공정: string; 차종: string | null } | null
+  업체?:        { 업체명: string; 이니셜: string | null } | null
+  작업지시서?:  { id: string; 상태: string } | null
+}
+
+// 공정검사 탭 삭제된 공정상태 목록
+export const 공정상태목록 = ['입고대기', '수입검사', '공정진행', '출하검사', '출고완료'] as const
+export const 검사가능공정 = ['수입검사', '공정진행', '출하검사'] as const
+
+// ─── 거래명세서 ───────────────────────────────────────────
+export interface 거래명세서Type {
+  id:             string
+  거래명세서번호: string
+  고객id:         string
+  출하일:         string
+  총수량:         number
+  총금액:         number
+  비고:           string | null
+  작성자id:       string | null
+  created_at:     string
+  // nested
+  업체?:          { 업체명: string } | null
+}
+
+// ─── 출하이력 ─────────────────────────────────────────────
+export interface 출하이력Type {
+  id:           string
+  거래명세서id: string | null
+  바코드id:     string
+  품목id:       string | null
+  고객id:       string | null
+  출고수량:     number
+  단가:         number | null
+  공급가액:     number | null
+  출하일:       string
+  비고:         string | null
+  created_at:   string
+  // nested
+  바코드?:      { 바코드: string; lot수량: number; lot_no: string | null; 작업지시서id: string | null; 공정진행데이터: string | null; 출하검사데이터: string | null } | null
+  품목?:        { 품명: string; 품번: string | null; 공정: string } | null
+  업체?:        { 업체명: string } | null
+  거래명세서?:  { 거래명세서번호: string } | null
+}
+
+// ─── 공통 유틸 ────────────────────────────────────────────
+export const 공정목록   = ['연질', '경질', '본딩'] as const
+export const 우선순위목록 = ['긴급', '보통', '낮음'] as const
+export const 상태목록   = ['대기', '진행중', '완료'] as const

@@ -84,6 +84,18 @@ function IconInventory({ active }: { active: boolean }) {
     </svg>
   )
 }
+function IconShipping({ active }: { active: boolean }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={active ? 2 : 1.6}
+      strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="3" width="15" height="13" rx="2"/>
+      <polygon points="16,8 20,8 23,11 23,16 16,16"/>
+      <circle cx="5.5" cy="18.5" r="2.5"/>
+      <circle cx="18.5" cy="18.5" r="2.5"/>
+    </svg>
+  )
+}
 function IconMaster({ active }: { active: boolean }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -157,7 +169,7 @@ const PC_NAV: NavItem[] = [
   { href: '/workorder', label: '작업지시서', sub: '작업지시 생성',         Icon: IconWorkorder },
   { href: '/lot',       label: 'LOT 검색',  sub: '바코드 · LOT 조회',    Icon: IconScan      },
   { href: '/inventory', label: '재고현황',   sub: '현재 재고 집계',        Icon: IconInventory },
-  { href: '/shipment',  label: '출하관리',   sub: '출하처리',             Icon: IconShipment  },
+  { href: '/shipping',  label: '출하관리',   sub: '출하 · 거래명세서',    Icon: IconShipping  },
   { section: '기준 관리' },
   { href: '/master',              label: '품목 / 거래처',  sub: '품목 · 거래처 · 담당자', Icon: IconMaster,    exact: true },
   { href: '/master/inspection-spec', label: '검사기준',      sub: '기준 마스터 관리',       Icon: IconInspSpec  },
