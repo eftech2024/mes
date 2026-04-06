@@ -159,6 +159,15 @@ export function DataTable<T>({
     onSortingChange: setSorting,
     onColumnOrderChange: setColumnOrder,
     onGroupingChange: setGrouping,
+    sortingFns: {
+      // Natural sort: P-1 < P-2 < P-10, 1A < 2A < 10A etc.
+      alphanumeric: (rowA: any, rowB: any, columnId: string) =>
+        String(rowA.getValue(columnId) ?? '').localeCompare(
+          String(rowB.getValue(columnId) ?? ''),
+          undefined,
+          { numeric: true, sensitivity: 'base' }
+        ),
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     ...(defaultGroupBy || groupByOptions ? {
@@ -255,10 +264,23 @@ export function DataTable<T>({
                             : flexRender(header.column.columnDef.header, header.getContext())}
                           {canSort && (
                             <span className={cn(
-                              'text-xs transition-colors',
+                              'inline-flex items-center shrink-0 transition-colors',
                               sorted ? 'text-green-600' : 'text-gray-300 group-hover/th:text-gray-400'
                             )}>
-                              {sorted === 'asc' ? '▲' : sorted === 'desc' ? '▼' : '⇅'}
+                              {sorted === 'asc' ? (
+                                <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                                  <path d="M2 8.5L6 3.5L10 8.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              ) : sorted === 'desc' ? (
+                                <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                                  <path d="M2 3.5L6 8.5L10 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              ) : (
+                                <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                                  <path d="M3.5 5L6 2.5L8.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                  <path d="M3.5 7L6 9.5L8.5 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              )}
                             </span>
                           )}
                         </button>
@@ -268,16 +290,24 @@ export function DataTable<T>({
                             {!isFirst && (
                               <button
                                 onClick={() => moveColumn(header.id, 'left')}
-                                className="text-[10px] text-gray-300 hover:text-green-600 px-0.5 leading-none"
-                                title="왼쪽 이동"
-                              >◀</button>
+                                className="flex items-center text-gray-300 hover:text-green-600 transition-colors"
+                                title="왜쪽 이동"
+                              >
+                                <svg className="w-2.5 h-2.5" viewBox="0 0 10 10" fill="none">
+                                  <path d="M7 2L3 5L7 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </button>
                             )}
                             {!isLast && (
                               <button
                                 onClick={() => moveColumn(header.id, 'right')}
-                                className="text-[10px] text-gray-300 hover:text-green-600 px-0.5 leading-none"
+                                className="flex items-center text-gray-300 hover:text-green-600 transition-colors"
                                 title="오른쪽 이동"
-                              >▶</button>
+                              >
+                                <svg className="w-2.5 h-2.5" viewBox="0 0 10 10" fill="none">
+                                  <path d="M3 2L7 5L3 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </button>
                             )}
                           </span>
                         )}
