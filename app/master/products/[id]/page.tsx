@@ -137,7 +137,21 @@ export default function ProductDetailPage() {
                 <div key={key}>
                   <p className="text-xs text-gray-400 mb-1">{label}</p>
                   {specEditing
-                    ? <Input type={text ? 'text' : 'number'} value={(specForm as any)[key] ?? ''} onChange={e => setSpecForm(f => ({ ...f, [key]: text ? e.target.value || null : (e.target.value ? Number(e.target.value) : null) }))} className="h-8 text-sm" />
+                    ? key === 'drawing_no'
+                      ? (
+                          <div className="flex gap-1">
+                            <Input type="text" value={specForm.drawing_no ?? ''} onChange={e => setSpecForm(f => ({ ...f, drawing_no: e.target.value || null }))} className="h-8 text-sm flex-1 min-w-0" />
+                            <label className="cursor-pointer shrink-0">
+                              <input type="file" accept=".pdf" className="sr-only" onChange={e => {
+                                const file = e.target.files?.[0]
+                                if (file) setSpecForm(f => ({ ...f, drawing_no: file.name.replace(/\.pdf$/i, '') }))
+                                e.target.value = ''
+                              }} />
+                              <span className="inline-flex h-8 items-center px-2 border border-gray-200 rounded text-xs bg-white hover:bg-gray-50 select-none">PDF</span>
+                            </label>
+                          </div>
+                        )
+                      : <Input type={text ? 'text' : 'number'} value={(specForm as any)[key] ?? ''} onChange={e => setSpecForm(f => ({ ...f, [key]: text ? e.target.value || null : (e.target.value ? Number(e.target.value) : null) }))} className="h-8 text-sm" />
                     : <p className="text-sm font-semibold text-gray-900">{(spec as any)?.[key] ?? '-'}</p>
                   }
                 </div>

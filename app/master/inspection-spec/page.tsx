@@ -204,7 +204,7 @@ export default function InspectionSpecPage() {
               <div>
                 <Label>검사 단계 *</Label>
                 <Select value={form.inspection_stage} onValueChange={v => setForm(f => ({ ...f, inspection_stage: v }))}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1 w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="INCOMING">수입검사</SelectItem>
                     <SelectItem value="PROCESS">공정검사</SelectItem>
@@ -215,7 +215,7 @@ export default function InspectionSpecPage() {
               <div>
                 <Label>공정 유형 (선택)</Label>
                 <Select value={form.process_type_code || 'NONE'} onValueChange={v => setForm(f => ({ ...f, process_type_code: v === 'NONE' ? '' : v }))}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="전체 공용" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 w-full"><SelectValue placeholder="전체 공용" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="NONE">전체 공용</SelectItem>
                     <SelectItem value="ANODIZING">아노다이징</SelectItem>

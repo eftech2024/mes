@@ -485,7 +485,7 @@ export default function MasterPage() {
               <div>
                 <Label>공정 유형</Label>
                 <Select value={prodForm.default_process_type} onValueChange={(v: string) => setProdForm(f => ({ ...f, default_process_type: v }))}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1 w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ANODIZING">아노다이징</SelectItem>
                     <SelectItem value="BONDING">본딩</SelectItem>
@@ -508,7 +508,7 @@ export default function MasterPage() {
                 value={prodForm.customer_party_id || 'NONE'}
                 onValueChange={(v: string) => setProdForm(f => ({ ...f, customer_party_id: v === 'NONE' ? '' : v }))}
               >
-                <SelectTrigger className="mt-1"><SelectValue placeholder="선택 안함" /></SelectTrigger>
+                <SelectTrigger className="mt-1 w-full"><SelectValue placeholder="선택 안함" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="NONE">선택 안함</SelectItem>
                   {parties
@@ -571,7 +571,7 @@ export default function MasterPage() {
               <div>
                 <Label>유형</Label>
                 <Select value={partyForm.party_type} onValueChange={(v: string) => setPartyForm(f => ({ ...f, party_type: v }))}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1 w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CUSTOMER">고객사</SelectItem>
                     <SelectItem value="SUPPLIER">공급사</SelectItem>
@@ -608,7 +608,7 @@ export default function MasterPage() {
             <div>
               <Label>소속 거래처 *</Label>
               <Select value={contactForm.party_id} onValueChange={(v: string) => setContactForm(f => ({ ...f, party_id: v }))}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="거래처 선택" /></SelectTrigger>
+                <SelectTrigger className="mt-1 w-full"><SelectValue placeholder="거래처 선택" /></SelectTrigger>
                 <SelectContent>
                   {parties.map(p => <SelectItem key={p.id} value={p.id}>{p.party_name}</SelectItem>)}
                 </SelectContent>

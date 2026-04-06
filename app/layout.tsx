@@ -254,8 +254,8 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     <>
       {/*  PC 레이아웃  */}
       <div className="hidden md:flex h-screen">
-        <nav className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
-          <div className="px-4 py-4 border-b border-gray-100 flex items-center">
+        <nav className="w-56 bg-gray-50 border-r border-gray-200 flex flex-col flex-shrink-0">
+          <div className="px-4 py-4 border-b border-gray-200 flex items-center">
             <Link href="/home">
               <Image src="/logo-h.png" alt="EF Technology" width={168} height={48} className="object-contain" priority />
             </Link>
@@ -274,20 +274,20 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
               const isSub = href.split('/').length > 2
               return (
                 <Link key={href} href={href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${isSub ? 'pl-5' : ''} ${active ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:bg-gray-50'}`}>
-                  <span className={active ? 'text-green-600' : 'text-gray-400'}><Icon active={active} /></span>
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${isSub ? 'pl-5' : ''} ${active ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
+                  <span className={active ? 'text-gray-700' : 'text-gray-400'}><Icon active={active} /></span>
                   <div>
-                    <div className={`${isSub ? 'text-[13px]' : 'text-sm'} font-semibold ${active ? 'text-green-700' : 'text-gray-800'}`}>{label}</div>
-                    <div className={`text-[11px] mt-0.5 ${active ? 'text-green-500' : 'text-gray-400'}`}>{sub}</div>
+                    <div className={`${isSub ? 'text-[13px]' : 'text-sm'} font-semibold ${active ? 'text-gray-900' : 'text-gray-700'}`}>{label}</div>
+                    <div className={`text-[11px] mt-0.5 ${active ? 'text-gray-500' : 'text-gray-400'}`}>{sub}</div>
                   </div>
                 </Link>
               )
             })}
           </div>
-          <div className="px-3 py-3 border-t border-gray-100">
+          <div className="px-3 py-3 border-t border-gray-200">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-gray-800 truncate">{user.user_name || user.email}</div>
+                <div className="text-sm font-semibold text-gray-700 truncate">{user.user_name || user.email}</div>
                 <div className="text-[11px] text-gray-400">{user.role_code}</div>
               </div>
               <button onClick={logout} className="text-xs text-gray-400 hover:text-red-500 font-semibold shrink-0">로그아웃</button>
